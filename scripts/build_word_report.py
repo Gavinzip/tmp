@@ -5,10 +5,9 @@ import json
 from pathlib import Path
 import subprocess
 import tempfile
-import textwrap
 
 import pandas as pd
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
@@ -23,8 +22,7 @@ FIGURES_DIR = ROOT / "figures"
 REPORT_DIR = ROOT / "report"
 OUT = REPORT_DIR / "term_project2_report_formatted.docx"
 
-P1_RULE_FORMULA_IMAGE = FIGURES_DIR / "problem1_rule_formula_sheet.png"
-P2_RULE_FORMULA_IMAGE = FIGURES_DIR / "problem2_rule_formula_sheet.png"
+FORMULA_DIR = FIGURES_DIR / "formulas"
 SYSTEM_PYTHON = Path("/Library/Frameworks/Python.framework/Versions/3.13/bin/python3")
 
 BODY_FONT = "Arial Unicode MS"
@@ -149,128 +147,21 @@ def setup_document(doc: Document) -> None:
     styles["Normal"].paragraph_format.line_spacing = 1.15
 
 
-def load_font(size: int, bold: bool = False):
-    candidates = [
-        "/System/Library/Fonts/PingFang.ttc",
-        "/System/Library/Fonts/STHeiti Medium.ttc",
-        "/System/Library/Fonts/STHeiti Light.ttc",
-        "/System/Library/Fonts/Hiragino Sans GB.ttc",
-        "/System/Library/Fonts/Songti.ttc",
-        "/System/Library/Fonts/Supplemental/Arial Bold.ttf" if bold else "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
-        "/System/Library/Fonts/Supplemental/Arial.ttf",
-    ]
-    for path in candidates:
-        try:
-            return ImageFont.truetype(path, size=size)
-        except OSError:
-            continue
-    return ImageFont.load_default()
-
-
-def draw_wrapped(draw: ImageDraw.ImageDraw, xy: tuple[int, int], text: str, font, fill: str, max_width: int, line_gap: int = 8) -> int:
-    x, y = xy
-    line = ""
-    lines: list[str] = []
-    for ch in text:
-        test = line + ch
-        if draw.textbbox((0, 0), test, font=font)[2] <= max_width:
-            line = test
-        else:
-            if line:
-                lines.append(line)
-            line = ch
-    if line:
-        lines.append(line)
-    for line in lines:
-        draw.text((x, y), line, font=font, fill=fill)
-        y += font.size + line_gap
-    return y
-
-
-def build_formula_image_plain(path: Path, title: str, subtitle: str, rows: list[tuple[str, str]], note: str) -> Path:
-    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-    width, height = 2200, 1500
-    image = Image.new("RGB", (width, height), "#ffffff")
-    draw = ImageDraw.Draw(image)
-    title_font = load_font(52, bold=True)
-    subtitle_font = load_font(30)
-    label_font = load_font(29, bold=True)
-    formula_font = load_font(31)
-    note_font = load_font(28)
-
-    draw.rectangle((55, 55, width - 55, height - 55), outline="#000000", width=3)
-    draw.text((105, 95), title, font=title_font, fill="#000000")
-    draw_wrapped(draw, (105, 170), subtitle, subtitle_font, "#000000", width - 210)
-
-    y = 275
-    row_h = 92
-    for label, formula in rows:
-        draw.line((105, y - 18, width - 105, y - 18), fill="#d9d9d9", width=2)
-        draw.text((120, y), label, font=label_font, fill="#000000")
-        draw_wrapped(draw, (610, y), formula, formula_font, "#000000", width - 720, line_gap=4)
-        y += row_h
-
-    draw.line((105, height - 175, width - 105, height - 175), fill="#000000", width=2)
-    draw_wrapped(draw, (120, height - 145), note, note_font, "#000000", width - 240)
-    image.save(path)
-    return path
-
-
 MATH_RENDER_SCRIPT = r"""
 import json
 import sys
-import tempfile
 from pathlib import Path
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from PIL import Image, ImageDraw, ImageFont
 
 
-def load_font(size, bold=False):
-    candidates = [
-        "/System/Library/Fonts/PingFang.ttc",
-        "/System/Library/Fonts/STHeiti Medium.ttc",
-        "/System/Library/Fonts/STHeiti Light.ttc",
-        "/System/Library/Fonts/Hiragino Sans GB.ttc",
-        "/System/Library/Fonts/Songti.ttc",
-        "/System/Library/Fonts/Supplemental/Arial Bold.ttf" if bold else "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
-        "/System/Library/Fonts/Supplemental/Arial.ttf",
-    ]
-    for path in candidates:
-        try:
-            return ImageFont.truetype(path, size=size)
-        except OSError:
-            continue
-    return ImageFont.load_default()
-
-
-def draw_wrapped(draw, xy, text, font, fill, max_width, line_gap=8):
-    x, y = xy
-    line = ""
-    lines = []
-    for ch in text:
-        test = line + ch
-        if draw.textbbox((0, 0), test, font=font)[2] <= max_width:
-            line = test
-        else:
-            if line:
-                lines.append(line)
-            line = ch
-    if line:
-        lines.append(line)
-    for line in lines:
-        draw.text((x, y), line, font=font, fill=fill)
-        y += font.size + line_gap
-    return y
-
-
-def render_math_png(formula, out_path):
-    fig = plt.figure(figsize=(11.2, 0.72), dpi=240)
+def render_math_png(formula, out_path, fontsize=28):
+    fig = plt.figure(figsize=(13.0, 0.90), dpi=240)
     ax = fig.add_axes([0, 0, 1, 1])
     ax.axis("off")
-    ax.text(0.0, 0.50, f"${formula}$", fontsize=26, ha="left", va="center", color="black")
+    ax.text(0.0, 0.50, f"${formula}$", fontsize=fontsize, ha="left", va="center", color="black")
     fig.savefig(out_path, transparent=True, bbox_inches="tight", pad_inches=0.025)
     plt.close(fig)
 
@@ -279,48 +170,7 @@ def main():
     spec = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
     out = Path(spec["path"])
     out.parent.mkdir(parents=True, exist_ok=True)
-
-    width = 2600
-    row_h = 132
-    top = 300
-    bottom_note_h = 210
-    height = top + row_h * len(spec["rows"]) + bottom_note_h
-    image = Image.new("RGB", (width, height), "#ffffff")
-    draw = ImageDraw.Draw(image)
-
-    title_font = load_font(56, bold=True)
-    subtitle_font = load_font(31)
-    label_font = load_font(31, bold=True)
-    note_font = load_font(30)
-
-    draw.rectangle((55, 55, width - 55, height - 55), outline="#000000", width=3)
-    draw.text((105, 92), spec["title"], font=title_font, fill="#000000")
-    draw_wrapped(draw, (105, 175), spec["subtitle"], subtitle_font, "#000000", width - 210)
-
-    with tempfile.TemporaryDirectory() as tmp:
-        tmp = Path(tmp)
-        y = top
-        for idx, row in enumerate(spec["rows"]):
-            label, formula = row
-            draw.line((105, y - 20, width - 105, y - 20), fill="#d9d9d9", width=2)
-            draw.text((120, y + 26), label, font=label_font, fill="#000000")
-
-            formula_path = tmp / f"formula_{idx}.png"
-            render_math_png(formula, formula_path)
-            formula_img = Image.open(formula_path).convert("RGBA")
-            max_w = width - 820
-            max_h = row_h - 18
-            scale = min(max_w / formula_img.width, max_h / formula_img.height, 1.25)
-            new_size = (max(1, int(formula_img.width * scale)), max(1, int(formula_img.height * scale)))
-            formula_img = formula_img.resize(new_size, Image.Resampling.LANCZOS)
-            fy = y + (row_h - formula_img.height) // 2
-            image.paste(formula_img, (720, fy), formula_img)
-            y += row_h
-
-    note_y = height - 165
-    draw.line((105, note_y - 28, width - 105, note_y - 28), fill="#000000", width=2)
-    draw_wrapped(draw, (120, note_y), spec["note"], note_font, "#000000", width - 240)
-    image.save(out)
+    render_math_png(spec["formula"], out, fontsize=int(spec.get("fontsize", 30)))
 
 
 if __name__ == "__main__":
@@ -328,7 +178,7 @@ if __name__ == "__main__":
 """
 
 
-def build_formula_image(path: Path, title: str, subtitle: str, rows: list[tuple[str, str]], note: str) -> Path:
+def render_formula_image(path: Path, formula: str, fontsize: int = 30) -> Path:
     if SYSTEM_PYTHON.exists():
         with tempfile.TemporaryDirectory() as tmp:
             tmp_dir = Path(tmp)
@@ -338,12 +188,9 @@ def build_formula_image(path: Path, title: str, subtitle: str, rows: list[tuple[
                 json.dumps(
                     {
                         "path": str(path),
-                        "title": title,
-                        "subtitle": subtitle,
-                        "rows": rows,
-                        "note": note,
+                        "formula": formula,
+                        "fontsize": fontsize,
                     },
-                    ensure_ascii=False,
                 ),
                 encoding="utf-8",
             )
@@ -355,54 +202,88 @@ def build_formula_image(path: Path, title: str, subtitle: str, rows: list[tuple[
             )
             if result.returncode == 0 and path.exists():
                 return path
-            print("Formula image math renderer failed; using plain fallback.")
+            print(f"Formula image math renderer failed for {path}.")
             if result.stderr:
                 print(result.stderr)
-    return build_formula_image_plain(path, title, subtitle, rows, note)
+    raise RuntimeError(f"Unable to render formula image: {path}")
 
 
-def build_problem1_formula_sheet() -> Path:
-    rows = [
-        ("每檔參數", r"S_i,\ L_i,\ M_i"),
-        ("AAPL 範例", r"S_{\mathrm{AAPL}}=0.20,\ L_{\mathrm{AAPL}}=75,\ M_{\mathrm{AAPL}}=99"),
-        ("移動平均", r"MA_t^{(i)}=\frac{1}{L_i}\sum_{k=0}^{L_i-1}P_{t-k}^{(i)}"),
-        ("動能", r"Mom_t^{(i)}=\frac{P_t^{(i)}}{P_{t-M_i}^{(i)}}-1"),
-        ("持有高點", r"H_t^{(i)}=\max(P_{\mathrm{entry}}^{(i)},\ldots,P_t^{(i)})"),
-        ("回撤", r"DD_t^{(i)}=\frac{P_t^{(i)}}{H_t^{(i)}}-1"),
-        ("出場", r"x_t^{(i)}=0\quad \mathrm{if}\quad x_{t-1}^{(i)}=1,\ DD_t^{(i)}\leq -S_i,\ P_t^{(i)}<MA_t^{(i)}"),
-        ("進場", r"x_t^{(i)}=1\quad \mathrm{if}\quad x_{t-1}^{(i)}=0,\ P_t^{(i)}>MA_t^{(i)},\ Mom_t^{(i)}>0"),
-        ("其他", r"x_t^{(i)}=x_{t-1}^{(i)}"),
-        ("資產更新", r"V_t=V_{t-1}\left[1+x_{t-1}\left(\frac{P_t}{P_{t-1}}-1\right)-0.001|x_t-x_{t-1}|\right]"),
-    ]
-    return build_formula_image(
-        P1_RULE_FORMULA_IMAGE,
-        "問題一：個股規則公式",
-        "GA 不是直接預測報酬，而是替每檔股票選停損、均線與動能視窗，再把參數放進同一套進出場規則。",
-        rows,
-        "重點：停損、均線與動能視窗是決定每日倉位 x_t 的參數；最後的累積報酬是策略跑完測試期後的結果，不是參數。",
+FormulaRow = tuple[str, str, Path]
+
+
+def build_formula_images(prefix: str, rows: list[tuple[str, str]], fontsize: int = 30) -> list[FormulaRow]:
+    FORMULA_DIR.mkdir(parents=True, exist_ok=True)
+    out: list[FormulaRow] = []
+    for idx, (label, formula) in enumerate(rows, start=1):
+        path = FORMULA_DIR / f"{prefix}_{idx:02d}.png"
+        render_formula_image(path, formula, fontsize=fontsize)
+        out.append((label, formula, path))
+    return out
+
+
+def build_problem1_formula_images() -> list[FormulaRow]:
+    return build_formula_images(
+        "problem1",
+        [
+            ("每檔參數", r"S_i,\ L_i,\ M_i"),
+            ("AAPL 範例", r"S_{\mathrm{AAPL}}=0.20,\ L_{\mathrm{AAPL}}=75,\ M_{\mathrm{AAPL}}=99"),
+            ("移動平均", r"MA_t^{(i)}=\frac{1}{L_i}\sum_{k=0}^{L_i-1}P_{t-k}^{(i)}"),
+            ("動能", r"Mom_t^{(i)}=\frac{P_t^{(i)}}{P_{t-M_i}^{(i)}}-1"),
+            ("持有高點", r"H_t^{(i)}=\max(P_{\mathrm{entry}}^{(i)},\ldots,P_t^{(i)})"),
+            ("回撤", r"DD_t^{(i)}=\frac{P_t^{(i)}}{H_t^{(i)}}-1"),
+            ("出場", r"x_t^{(i)}=0\quad \mathrm{if}\quad x_{t-1}^{(i)}=1,\ DD_t^{(i)}\leq -S_i,\ P_t^{(i)}<MA_t^{(i)}"),
+            ("進場", r"x_t^{(i)}=1\quad \mathrm{if}\quad x_{t-1}^{(i)}=0,\ P_t^{(i)}>MA_t^{(i)},\ Mom_t^{(i)}>0"),
+            ("其他", r"x_t^{(i)}=x_{t-1}^{(i)}"),
+            ("資產更新", r"V_t=V_{t-1}\left[1+x_{t-1}\left(\frac{P_t}{P_{t-1}}-1\right)-0.001|x_t-x_{t-1}|\right]"),
+        ],
+        fontsize=28,
     )
 
 
-def build_problem2_formula_sheet() -> Path:
-    rows = [
-        ("價格轉換", r"X_t=\ln(P_t^V),\quad Y_t=\ln(P_t^{MA})"),
-        ("配對迴歸", r"X_t=\alpha+\beta Y_t+\varepsilon_t"),
-        ("價差", r"Spread_t=X_t-\alpha-\beta Y_t"),
-        ("標準化分數", r"z_t=\frac{Spread_t-\mu_L(Spread)}{\sigma_L(Spread)}"),
-        ("Fixed 參數", r"L=40,\ entry_z=1.5,\ exit_z=0,\ stop_z=3.5,\ hold=60"),
-        ("Long spread", r"z_t\leq -entry_z\Rightarrow +V-\beta MA"),
-        ("Short spread", r"z_t\geq entry_z\Rightarrow -V+\beta MA"),
-        ("均值回歸出場", r"Long:\ z_t\geq -exit_z,\quad Short:\ z_t\leq exit_z"),
-        ("風控", r"|z_t|\geq stop_z\quad \mathrm{or}\quad holding\ days\geq max\ hold"),
-        ("GA 搜尋", r"chromosome=(L,\ entry_z,\ exit_z,\ stop_z,\ holding\ days)"),
-    ]
-    return build_formula_image(
-        P2_RULE_FORMULA_IMAGE,
-        "Problem 2：Classic V-MA Z-score Pairs Trading 公式",
-        "Problem 2 使用 Visa 與 Mastercard 這組固定 pair，先建立 spread，再用 z-score 進行均值回歸交易。",
-        rows,
-        "重點：Classic 與 GA 都是同一個 pair trading 架構；差別只在參數是否由 training data 挑選。",
+def build_problem2_formula_images() -> list[FormulaRow]:
+    return build_formula_images(
+        "problem2",
+        [
+            ("價格轉換", r"X_t=\ln(P_t^V),\quad Y_t=\ln(P_t^{MA})"),
+            ("配對迴歸", r"X_t=\alpha+\beta Y_t+\varepsilon_t"),
+            ("價差", r"Spread_t=X_t-\alpha-\beta Y_t"),
+            ("標準化分數", r"z_t=\frac{Spread_t-\mu_L(Spread)}{\sigma_L(Spread)}"),
+            ("Fixed 參數", r"L=40,\ entry_z=1.5,\ exit_z=0,\ stop_z=3.5,\ hold=60"),
+            ("Long spread", r"z_t\leq -entry_z\Rightarrow +V-\beta MA"),
+            ("Short spread", r"z_t\geq entry_z\Rightarrow -V+\beta MA"),
+            ("均值回歸出場", r"Long:\ z_t\geq -exit_z,\quad Short:\ z_t\leq exit_z"),
+            ("風控", r"|z_t|\geq stop_z\quad \mathrm{or}\quad holding\ days\geq max\ hold"),
+            ("GA 搜尋", r"chromosome=(L,\ entry_z,\ exit_z,\ stop_z,\ holding\ days)"),
+        ],
+        fontsize=28,
     )
+
+
+def add_formula_list(doc: Document, rows: list[FormulaRow]) -> None:
+    for label, formula, path in rows:
+        p = doc.add_paragraph()
+        p.paragraph_format.space_before = Pt(4)
+        p.paragraph_format.space_after = Pt(2)
+        p.paragraph_format.keep_with_next = True
+        p.paragraph_format.keep_together = True
+        run = p.add_run(label)
+        set_run_font(run, size=10, bold=True)
+
+        p_img = doc.add_paragraph()
+        p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_img.paragraph_format.space_after = Pt(5)
+        p_img.paragraph_format.keep_together = True
+        p_img.add_run().add_picture(str(path), width=Inches(formula_image_width(path, formula)))
+
+
+def formula_image_width(path: Path, formula: str) -> float:
+    """Keep short formulas compact while capping long formulas to the text width."""
+    try:
+        with Image.open(path) as image:
+            natural_width = image.size[0] / 240 * 0.82
+    except OSError:
+        natural_width = len(formula) * 0.06
+    return max(1.35, min(5.85, natural_width))
 
 
 def load_data() -> dict[str, pd.DataFrame]:
@@ -602,8 +483,8 @@ def add_title_page(doc: Document) -> None:
 
 def main() -> None:
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
-    build_problem1_formula_sheet()
-    build_problem2_formula_sheet()
+    problem1_formulas = build_problem1_formula_images()
+    problem2_formulas = build_problem2_formula_images()
     data = load_data()
 
     doc = Document()
@@ -635,8 +516,10 @@ def main() -> None:
         "Problem 1 不把五檔股票合成一條線，而是每檔股票各自套用同一套規則。"
         "GA 只負責替每檔股票挑選停損、均線視窗與動能視窗，實際交易仍由固定規則決定。",
     )
-    add_image(doc, P1_RULE_FORMULA_IMAGE, "圖 1：Problem 1 個股規則公式。", width=6.2)
+    paragraph(doc, "Problem 1 公式如下。項目名稱與說明使用 Word 原生文字排版，公式本身各自以單張 PNG 插入。", size=10)
+    add_formula_list(doc, problem1_formulas)
 
+    doc.add_page_break()
     heading(doc, "3.1 個股參數與績效摘要", 2)
     add_table(
         doc,
@@ -660,7 +543,8 @@ def main() -> None:
         "Problem 2 固定使用 Visa 與 Mastercard，不在測試期之後回頭更換 pair。"
         "Classic 版本使用固定參數；GA 版本只調整交易參數，不改變 pair 本身。",
     )
-    add_image(doc, P2_RULE_FORMULA_IMAGE, "圖 2：Problem 2 配對交易公式。", width=6.2)
+    paragraph(doc, "Problem 2 公式如下。文字說明維持 Word 原生排版，公式本身各自以單張 PNG 插入。", size=10)
+    add_formula_list(doc, problem2_formulas)
 
     heading(doc, "4.1 2016-2026 主要結果", 2)
     add_table(
