@@ -113,10 +113,10 @@ def _fit_beta(train_x: pd.Series, train_y: pd.Series) -> float:
 
 @dataclass(frozen=True)
 class P2Cfg:
-    lookback: int = 60
-    entry_z: float = 2.0
+    lookback: int = 40
+    entry_z: float = 1.5
     exit_z: float = 0.0
-    stop_z: float = 3.0
+    stop_z: float = 3.5
     max_holding_days: int = 60
     beta_lookback: int = 252
     regime_lookback: int = 100
@@ -287,7 +287,12 @@ def run_pairs_with_logs(
         marked = prev_equity * (1.0 + pair_ret)
         holding_days += 1
         exit_reason = None
-        if abs(z) <= cfg.exit_z:
+        # Exit toward the mean by direction. With exit_z=0, exact
+        # abs(z) <= 0 almost never happens, so classic pairs trading should
+        # close long spreads after z crosses back to 0 and short spreads after
+        # z crosses back to 0.
+        mean_reverted = (state > 0 and z >= -cfg.exit_z) or (state < 0 and z <= cfg.exit_z)
+        if mean_reverted:
             exit_reason = "mean_reversion"
         elif abs(z) >= cfg.stop_z:
             exit_reason = "stop_z"
@@ -963,8 +968,6 @@ def build_problem2_logs(prices: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFram
     cfg = P2Cfg()
     windows = [
         ("2016-2026", pd.Timestamp("2015-12-31"), pd.Timestamp("2016-01-01"), pd.Timestamp("2026-12-31")),
-        ("2025", pd.Timestamp("2024-12-31"), pd.Timestamp("2025-01-01"), pd.Timestamp("2025-12-31")),
-        ("2026", pd.Timestamp("2025-12-31"), pd.Timestamp("2026-01-01"), pd.Timestamp("2026-12-31")),
     ]
     trade_logs: list[pd.DataFrame] = []
     reject_logs: list[pd.DataFrame] = []
@@ -1072,8 +1075,6 @@ def build_problem2_ga_logs(
     fixed_cfg = P2Cfg()
     windows = [
         ("2016-2026", pd.Timestamp("2015-12-31"), pd.Timestamp("2016-01-01"), pd.Timestamp("2026-12-31")),
-        ("2025", pd.Timestamp("2024-12-31"), pd.Timestamp("2025-01-01"), pd.Timestamp("2025-12-31")),
-        ("2026", pd.Timestamp("2025-12-31"), pd.Timestamp("2026-01-01"), pd.Timestamp("2026-12-31")),
     ]
     param_rows: list[dict[str, Any]] = []
     metric_rows: list[dict[str, Any]] = []

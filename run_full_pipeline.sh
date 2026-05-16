@@ -5,3 +5,4 @@ export PYTHONDONTWRITEBYTECODE=1
 python3 scripts/run_term_project2_recommended.py
 python3 scripts/build_report_assets.py
 python3 scripts/build_final_report.py
+python3 scripts/build_word_report.py

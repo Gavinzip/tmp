@@ -20,10 +20,10 @@ class PairInfo:
 
 @dataclass(frozen=True)
 class PairsConfig:
-    lookback: int = 60
-    entry_z: float = 2.0
+    lookback: int = 40
+    entry_z: float = 1.5
     exit_z: float = 0.0
-    stop_z: float = 3.0
+    stop_z: float = 3.5
     max_holding_days: int = 60
     min_abs_corr: float = 0.70
     max_coint_pvalue: float = 0.10
@@ -252,11 +252,12 @@ def run_pairs_backtest(
         marked = prev_equity * (1.0 + pair_ret)
         holding_days += 1
 
-        should_exit = (
-            abs(z) <= cfg.exit_z
-            or abs(z) >= cfg.stop_z
-            or holding_days >= cfg.max_holding_days
-        )
+        # Exit toward the mean by direction. With exit_z=0, a long spread
+        # exits once z crosses back to 0 or above, while a short spread exits
+        # once z crosses back to 0 or below. abs(z) <= 0 is too strict and
+        # almost never triggers on real daily data.
+        mean_reverted = (state > 0 and z >= -cfg.exit_z) or (state < 0 and z <= cfg.exit_z)
+        should_exit = mean_reverted or abs(z) >= cfg.stop_z or holding_days >= cfg.max_holding_days
         if should_exit:
             marked *= (1.0 - fee_rate)
             state = 0

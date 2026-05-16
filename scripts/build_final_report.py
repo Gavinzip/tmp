@@ -508,7 +508,7 @@ def p2_ga_vs_fixed_explanations(p2_ga_params: pd.DataFrame, p2_ga_windows: pd.Da
         lines.append(
             f"{window}：GA 參數 lookback {int(params['lookback'])}、entry_z {float(params['entry_z']):.2f}、"
             f"exit_z {float(params['exit_z']):.2f}、stop_z {float(params['stop_z']):.2f}、max hold {int(params['max_holding_days'])}。"
-            f"相對 fixed `60/2.0/0/3.0/60`，GA 交易 {ga_n} 筆、fixed {fixed_n} 筆；"
+            f"相對 fixed `40/1.5/0/3.5/60`，GA 交易 {ga_n} 筆、fixed {fixed_n} 筆；"
             f"GA 累積 {pct(ga['cumulative_return'])}、MDD {pct(ga['max_drawdown'])}，fixed 累積 {pct(fixed['cumulative_return'])}、MDD {pct(fixed['max_drawdown'])}。{result}"
         )
     return lines
@@ -653,12 +653,12 @@ def report_markdown(data: dict[str, pd.DataFrame], phases: pd.DataFrame, turns: 
     lines.append("- 使用同一組五檔股票中的 `V-MA` 作為固定 pair。選它不是因為測試期績效最好，而是因為 Visa 與 Mastercard 屬於同產業、商業模式相近、價格長期高度相關，報告上更容易解釋。")
     lines.append("- 候選 pair 表仍保留 cointegration / correlation 檢查；但正式策略不再每年切換 pair，避免研究設計前後不一致。")
     lines.append("- 對兩檔股價取 log，使用 OLS / rolling beta 定義 spread。")
-    lines.append("- 使用 60 日 rolling z-score 作為進出場訊號。")
-    lines.append("- `z <= -2.0` 做 long spread，`z >= 2.0` 做 short spread。")
-    lines.append("- `z` 回到 0 附近平倉；`|z| >= 3.0` 停損；最長持有 60 天。")
+    lines.append("- 使用 40 日 rolling z-score 作為 fixed baseline 的進出場訊號；GA 版本則在 30-90 日區間內自行選 lookback。")
+    lines.append("- Fixed baseline 使用 `z <= -1.5` 做 long spread，`z >= 1.5` 做 short spread。")
+    lines.append("- `z` 依方向回到 0 附近平倉；`|z| >= 3.5` 停損；最長持有 60 天。")
     lines.append("- ADF p-value 與 half-life 這版不再當硬性進場 filter，而是作為診斷資訊。原因是前一版 filter 太嚴，導致策略過度空手，看起來不像真的 pairs trading。")
-    lines.append("- 固定參數版本使用乾淨的事前 baseline：`lookback=60`、`entry_z=2.0`、`exit_z=0.0`、`stop_z=3.0`、`max_holding_days=60`。這組不是從 2016-2026 測試期調出來，而是 pairs trading 常見的 z-score rule。")
-    lines.append("- GA 版本不改變策略架構，只搜尋 `lookback / entry_z / exit_z / stop_z / max_holding_days`。每個測試期都只用該期以前資料做內部 formation/validation，因此不偷看測試期。")
+    lines.append("- 固定參數版本使用乾淨的事前 baseline：`lookback=40`、`entry_z=1.5`、`exit_z=0.0`、`stop_z=3.5`、`max_holding_days=60`。這組不是從 2016-2026 測試期調出來，而是 pairs trading 常見的 classic z-score rule。")
+    lines.append("- GA 版本不改變策略架構，只搜尋 `lookback / entry_z / exit_z / stop_z / max_holding_days`。正式測試窗只有 `2016-2026`；GA 只用 2015 年底以前資料做內部 formation/validation，因此不偷看測試期。")
     lines.append("- P2 GA 的 chromosome 實際儲存 7 個欄位：`lookback / entry_z / exit_z / stop_z / max_holding_days / ADF p-value threshold / max half-life`。但本版 `use_regime_filter=False`，所以真正影響交易的是前 5 個；ADF 與 half-life 只保留為診斷與未來擴充，不再硬擋交易。")
     lines.append("- P2 GA 搜尋範圍：lookback 30-90、entry_z 1.0-2.5、exit_z 0-0.6、stop_z 2.5-4.2、max hold 20-80；population 18、generations 12、elite 4。")
     lines.append("- P2 fitness 主要獎勵 validation return，懲罰 drawdown、volatility、零交易與過少交易，目的是找出更穩定的 spread-trading 規則，而不是改變 pair。")
@@ -675,7 +675,7 @@ def report_markdown(data: dict[str, pd.DataFrame], phases: pd.DataFrame, turns: 
                 "Selected": bool(r["selected"]),
             }
         )
-    lines.append("Pair choice is not random. The formal report uses the fixed famous pair `V-MA`; the table below shows its training-period correlation is consistently very high. Cointegration evidence is moderate in the early 2016-2026 training cut and becomes much stronger by the 2025/2026 cuts. Other screened candidates are kept in `results/reco_problem2_pair_selection.csv` only as comparison evidence, not as formal strategy choices:")
+    lines.append("Pair choice is not random. The formal report uses the fixed famous pair `V-MA`; the table below shows its pre-2016 training-period correlation is very high. Other screened candidates are kept in `results/reco_problem2_pair_selection.csv` only as comparison evidence, not as formal strategy choices:")
     lines.append("")
     lines.append(md_table(selection_rows, ["Window", "Rank", "Pair", "Train Corr.", "Coint p-value", "Selected"]))
     lines.append("")
@@ -746,7 +746,7 @@ def report_markdown(data: dict[str, pd.DataFrame], phases: pd.DataFrame, turns: 
     lines.append("")
     lines.append("![Problem 2 Pairs](../figures/reco_problem2_vs_benchmarks.png)")
     lines.append("")
-    lines.append("Problem 2 的 pairs strategy 使用同一組 `V-MA` 跑 10 年測試與年度檢查。若報酬低於 pair 的 Buy&Hold / DCA，但最大回撤和波動較低，這是 market-neutral / hedged 策略常見的現象：它不是靠單邊多頭行情賺錢，而是靠 spread 回歸賺錢；如果市場本身大漲，長抱基準會自然占優。")
+    lines.append("Problem 2 的 pairs strategy 只使用同一組 `V-MA` 跑 `2016-2026` 十年測試窗。若報酬低於 pair 的 Buy&Hold / DCA，但最大回撤和波動較低，這是 market-neutral / hedged 策略常見的現象：它不是靠單邊多頭行情賺錢，而是靠 spread 回歸賺錢；如果市場本身大漲，長抱基準會自然占優。")
     lines.append("")
     p2_window_rows = []
     for _, r in p2_windows.iterrows():
@@ -784,7 +784,7 @@ def report_markdown(data: dict[str, pd.DataFrame], phases: pd.DataFrame, turns: 
         )
     lines.append(md_table(p2_ga_param_rows, ["Window", "Selected Pairs", "Lookback", "Entry Z", "Exit Z", "Stop Z", "Max Hold", "Regime Filter", "交易影響"]))
     lines.append("")
-    lines.append("GA 的 P2 參數不是拿測試期答案調出來的；`2016-2026` 這張 10 年圖使用 2015 年底以前資料訓練 GA，`2025` 與 `2026` 年度檢查則各自只用該年前資料，並在 training data 內部切 formation / validation 來評分。")
+    lines.append("GA 的 P2 參數不是拿測試期答案調出來的；正式結果只有 `2016-2026` 這張 10 年圖，使用 2015 年底以前資料訓練 GA，並在 training data 內部切 formation / validation 來評分。")
     lines.append("")
     lines.append(md_table(p2_ga_metric_rows(p2_ga_windows), ["Window", "Pair", "Strategy", "Cum.", "MDD", "Vol.", "End Equity"]))
     lines.append("")
@@ -821,7 +821,7 @@ def report_markdown(data: dict[str, pd.DataFrame], phases: pd.DataFrame, turns: 
                 read = "低於固定參數"
             p2_ga_comments.append(f"{key[0]} 年 `{key[1]}` GA {pct(ga_val)}，固定參數 {pct(fixed_val)}，{read}")
     lines.append(
-        "P2 GA 結論需要保守寫：目前每個測試期都固定使用 `V-MA`，GA 只負責調交易參數。"
+        "P2 GA 結論需要保守寫：正式測試窗固定使用 `V-MA`，GA 只負責調交易參數。"
         + "；".join(p2_ga_comments)
         + "。這代表 GA 不保證一定打敗固定參數；本報告保留 GA 結果，是為了展示參數搜尋與 out-of-sample 驗證，而不是把 GA 包裝成必勝模型。"
     )
@@ -943,7 +943,7 @@ def report_markdown(data: dict[str, pd.DataFrame], phases: pd.DataFrame, turns: 
 
     lines.append("## 10. Reproducibility")
     lines.append("")
-    lines.append("Run the following commands from this repo root:")
+    lines.append("Run the following commands from the `專題二` folder:")
     lines.append("")
     lines.append("```bash")
     lines.append("python3 scripts/run_term_project2_recommended.py")
@@ -1252,8 +1252,8 @@ def build_slides(data: dict[str, pd.DataFrame], phases: pd.DataFrame, turns: pd.
       <h2 class="h-md" data-anim>用價格 / 資產 / 持倉線看 P2 發生什麼</h2>
       {html_rowline(f"{first_pair_label} {first_window}", f"GA {ga_first_txt}", f"Fixed {fixed_first_txt}")}
       {html_rowline("GA selected", p2_param_text, p2_param_effect)}
-      {html_rowline("Fixed baseline", "60D / entry 2.0 / exit 0 / stop 3.0 / hold 60", "classic z-score rule")}
-      {html_rowline("Average", f"GA pairs {pct(p2_ga_avg.get('ga_pairs_zscore'))}", f"Fixed pairs {pct(p2_ga_avg.get('fixed_pairs_zscore'))}")}
+      {html_rowline("Fixed baseline", "40D / entry 1.5 / exit 0 / stop 3.5 / hold 60", "classic z-score rule")}
+      {html_rowline("2016-2026", f"GA pairs {pct(p2_ga_avg.get('ga_pairs_zscore'))}", f"Fixed pairs {pct(p2_ga_avg.get('fixed_pairs_zscore'))}")}
       <div class="callout" data-anim>持倉線是關鍵：+1 是 long spread，-1 是 short spread，0 表示沒有 z-score 偏離訊號。</div>
     </div>
     <figure class="frame-img r-16x10 fit-contain" data-anim><img src="images/11-p2-ga-detail.png" alt="P2 price position chart"></figure>

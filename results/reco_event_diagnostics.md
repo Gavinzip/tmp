@@ -18,13 +18,11 @@
 ## Problem 2: Pairs Strategy
 
 ### Window outcome snapshot
-- `2016-2026` `V-MA` annualized `-0.0049`, cumulative `-0.0497`, MDD `-0.1589`.
-- `2025` `V-MA` annualized `-0.0075`, cumulative `-0.0074`, MDD `-0.0636`.
-- `2026` `V-MA` annualized `0.1241`, cumulative `0.0436`, MDD `-0.0162`.
+- `2016-2026` `V-MA` annualized `-0.0028`, cumulative `-0.0287`, MDD `-0.1884`.
 
 ### Problem 2 unexpected behavior: log-based reasons
-- Losing trade `V-MA` `2024-09-26 -> 2024-12-20` (short_spread): return `-6.84%`, exit reason `max_holding_days`, holding `60` days.
-- Losing trade `V-MA` `2020-07-01 -> 2020-09-25` (long_spread): return `-3.64%`, exit reason `max_holding_days`, holding `60` days.
-- Losing trade `V-MA` `2025-06-03 -> 2025-08-28` (long_spread): return `-3.06%`, exit reason `max_holding_days`, holding `60` days.
-- Losing trade `V-MA` `2025-06-03 -> 2025-08-28` (long_spread): return `-3.06%`, exit reason `max_holding_days`, holding `60` days.
-- Losing trade `V-MA` `2018-11-27 -> 2019-02-26` (long_spread): return `-2.80%`, exit reason `max_holding_days`, holding `60` days.
+- Losing trade `V-MA` `2016-11-17 -> 2017-02-15` (short_spread): return `-3.35%`, exit reason `max_holding_days`, holding `60` days.
+- Losing trade `V-MA` `2018-11-26 -> 2019-02-25` (long_spread): return `-3.27%`, exit reason `max_holding_days`, holding `60` days.
+- Losing trade `V-MA` `2020-08-17 -> 2020-11-10` (short_spread): return `-2.94%`, exit reason `max_holding_days`, holding `60` days.
+- Losing trade `V-MA` `2020-06-24 -> 2020-08-10` (long_spread): return `-2.93%`, exit reason `mean_reversion`, holding `32` days.
+- Losing trade `V-MA` `2024-01-23 -> 2024-04-04` (long_spread): return `-2.71%`, exit reason `mean_reversion`, holding `50` days.

@@ -120,23 +120,21 @@ Pairs trading 的假設是：兩檔股票若長期存在穩定關係，短期 sp
 - 使用同一組五檔股票中的 `V-MA` 作為固定 pair。選它不是因為測試期績效最好，而是因為 Visa 與 Mastercard 屬於同產業、商業模式相近、價格長期高度相關，報告上更容易解釋。
 - 候選 pair 表仍保留 cointegration / correlation 檢查；但正式策略不再每年切換 pair，避免研究設計前後不一致。
 - 對兩檔股價取 log，使用 OLS / rolling beta 定義 spread。
-- 使用 60 日 rolling z-score 作為進出場訊號。
-- `z <= -2.0` 做 long spread，`z >= 2.0` 做 short spread。
-- `z` 回到 0 附近平倉；`|z| >= 3.0` 停損；最長持有 60 天。
+- 使用 40 日 rolling z-score 作為 fixed baseline 的進出場訊號；GA 版本則在 30-90 日區間內自行選 lookback。
+- Fixed baseline 使用 `z <= -1.5` 做 long spread，`z >= 1.5` 做 short spread。
+- `z` 依方向回到 0 附近平倉；`|z| >= 3.5` 停損；最長持有 60 天。
 - ADF p-value 與 half-life 這版不再當硬性進場 filter，而是作為診斷資訊。原因是前一版 filter 太嚴，導致策略過度空手，看起來不像真的 pairs trading。
-- 固定參數版本使用乾淨的事前 baseline：`lookback=60`、`entry_z=2.0`、`exit_z=0.0`、`stop_z=3.0`、`max_holding_days=60`。這組不是從 2016-2026 測試期調出來，而是 pairs trading 常見的 z-score rule。
-- GA 版本不改變策略架構，只搜尋 `lookback / entry_z / exit_z / stop_z / max_holding_days`。每個測試期都只用該期以前資料做內部 formation/validation，因此不偷看測試期。
+- 固定參數版本使用乾淨的事前 baseline：`lookback=40`、`entry_z=1.5`、`exit_z=0.0`、`stop_z=3.5`、`max_holding_days=60`。這組不是從 2016-2026 測試期調出來，而是 pairs trading 常見的 classic z-score rule。
+- GA 版本不改變策略架構，只搜尋 `lookback / entry_z / exit_z / stop_z / max_holding_days`。正式測試窗只有 `2016-2026`；GA 只用 2015 年底以前資料做內部 formation/validation，因此不偷看測試期。
 - P2 GA 的 chromosome 實際儲存 7 個欄位：`lookback / entry_z / exit_z / stop_z / max_holding_days / ADF p-value threshold / max half-life`。但本版 `use_regime_filter=False`，所以真正影響交易的是前 5 個；ADF 與 half-life 只保留為診斷與未來擴充，不再硬擋交易。
 - P2 GA 搜尋範圍：lookback 30-90、entry_z 1.0-2.5、exit_z 0-0.6、stop_z 2.5-4.2、max hold 20-80；population 18、generations 12、elite 4。
 - P2 fitness 主要獎勵 validation return，懲罰 drawdown、volatility、零交易與過少交易，目的是找出更穩定的 spread-trading 規則，而不是改變 pair。
 
-Pair choice is not random. The formal report uses the fixed famous pair `V-MA`; the table below shows its training-period correlation is consistently very high. Cointegration evidence is moderate in the early 2016-2026 training cut and becomes much stronger by the 2025/2026 cuts. Other screened candidates are kept in `results/reco_problem2_pair_selection.csv` only as comparison evidence, not as formal strategy choices:
+Pair choice is not random. The formal report uses the fixed famous pair `V-MA`; the table below shows its pre-2016 training-period correlation is very high. Other screened candidates are kept in `results/reco_problem2_pair_selection.csv` only as comparison evidence, not as formal strategy choices:
 
 | Window | Rank | Pair | Train Corr. | Coint p-value | Selected |
 | --- | --- | --- | --- | --- | --- |
 | 2016-2026 | 5 | V-MA | 0.993 | 0.2381 | True |
-| 2025 | 1 | V-MA | 0.997 | 0.0126 | True |
-| 2026 | 2 | V-MA | 0.997 | 0.0033 | True |
 
 ## 4. Problem 1 Performance Summary
 
@@ -215,7 +213,7 @@ Pair choice is not random. The formal report uses the fixed famous pair `V-MA`; 
 
 | Date | Action | Price | DD from Peak | GA Mom. | Price vs MA | 63D Vol. | Next Date | Price Move | Interpretation |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 2020-03-12 | Exit | 132.09 | -26.11% | -8.28% | -10.16% | 43.56% | 2020-03-13 | 14.22% | 失敗：出場後股價反彈，策略少吃一段上漲。 |
+| 2020-03-12 | Exit | 132.09 | -26.10% | -8.28% | -10.16% | 43.56% | 2020-03-13 | 14.22% | 失敗：出場後股價反彈，策略少吃一段上漲。 |
 | 2020-03-13 | Re-entry | 150.87 | -15.60% | 4.56% | 2.51% | 52.12% | 2022-04-26 | 73.26% | 成功：重新進場後股價上漲，策略重新跟上趨勢。 |
 | 2022-04-26 | Exit | 261.40 | -21.08% | -14.03% | -12.97% | 34.11% | 2022-07-29 | 4.14% | 失敗：出場後股價反彈，策略少吃一段上漲。 |
 | 2022-07-29 | Re-entry | 272.21 | -17.82% | 0.56% | 1.18% | 37.11% | 2022-10-10 | -18.17% | 失敗：重新進場後價格下跌，屬於二次回落或假突破。 |
@@ -320,42 +318,30 @@ Pair choice is not random. The formal report uses the fixed famous pair `V-MA`; 
 | --- | --- | --- | --- | --- |
 | buy_and_hold_pair | 20.04% | 20.63% | -16.44% | 23.67% |
 | dca_pair | 11.14% | 11.28% | -9.83% | 14.21% |
-| pairs_zscore | 0.20% | -0.27% | -4.71% | 4.91% |
+| pairs_zscore | 0.90% | 0.59% | -4.62% | 5.60% |
 
 ![Problem 2 Pairs](../figures/reco_problem2_vs_benchmarks.png)
 
-Problem 2 的 pairs strategy 使用同一組 `V-MA` 跑 10 年測試與年度檢查。若報酬低於 pair 的 Buy&Hold / DCA，但最大回撤和波動較低，這是 market-neutral / hedged 策略常見的現象：它不是靠單邊多頭行情賺錢，而是靠 spread 回歸賺錢；如果市場本身大漲，長抱基準會自然占優。
+Problem 2 的 pairs strategy 只使用同一組 `V-MA` 跑 `2016-2026` 十年測試窗。若報酬低於 pair 的 Buy&Hold / DCA，但最大回撤和波動較低，這是 market-neutral / hedged 策略常見的現象：它不是靠單邊多頭行情賺錢，而是靠 spread 回歸賺錢；如果市場本身大漲，長抱基準會自然占優。
 
 | Window | Pair | Annualized | Cumulative | MDD | End Equity |
 | --- | --- | --- | --- | --- | --- |
-| 2016-2026 | V-MA | -0.49% | -4.97% | -15.89% | $9,503 |
-| 2025 | V-MA | -0.75% | -0.74% | -6.36% | $9,926 |
-| 2026 | V-MA | 12.41% | 4.36% | -1.62% | $10,436 |
+| 2016-2026 | V-MA | -0.28% | -2.87% | -18.84% | $9,713 |
 
 ### Problem 2 GA Parameter Selection
 
 | Window | Selected Pairs | Lookback | Entry Z | Exit Z | Stop Z | Max Hold | Regime Filter | 交易影響 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 2016-2026 | V-MA | 78 | 2.33 | 0.05 | 3.83 | 41 | False | 進場門檻更嚴格；持有天數更短 |
-| 2025 | V-MA | 58 | 1.03 | 0.09 | 3.29 | 28 | False | 進場門檻更寬鬆；持有天數更短 |
-| 2026 | V-MA | 59 | 2.21 | 0.24 | 3.17 | 20 | False | 進場門檻更嚴格；持有天數更短 |
+| 2016-2026 | V-MA | 81 | 2.22 | 0.44 | 4.20 | 23 | False | 進場門檻更嚴格；持有天數更短 |
 
-GA 的 P2 參數不是拿測試期答案調出來的；`2016-2026` 這張 10 年圖使用 2015 年底以前資料訓練 GA，`2025` 與 `2026` 年度檢查則各自只用該年前資料，並在 training data 內部切 formation / validation 來評分。
+GA 的 P2 參數不是拿測試期答案調出來的；正式結果只有 `2016-2026` 這張 10 年圖，使用 2015 年底以前資料訓練 GA，並在 training data 內部切 formation / validation 來評分。
 
 | Window | Pair | Strategy | Cum. | MDD | Vol. | End Equity |
 | --- | --- | --- | --- | --- | --- | --- |
-| 2016-2026 | V-MA | ga_pairs_zscore | -3.45% | -11.16% | 3.30% | $9,655 |
-| 2016-2026 | V-MA | fixed_pairs_zscore | -4.97% | -15.89% | 4.44% | $9,503 |
+| 2016-2026 | V-MA | ga_pairs_zscore | -1.12% | -7.90% | 2.61% | $9,888 |
+| 2016-2026 | V-MA | fixed_pairs_zscore | -2.87% | -18.84% | 5.06% | $9,713 |
 | 2016-2026 | V-MA | buy_and_hold_pair | 409.40% | -38.97% | 25.12% | $50,940 |
 | 2016-2026 | V-MA | dca_pair | 114.05% | -23.23% | 16.07% | $21,405 |
-| 2025 | V-MA | ga_pairs_zscore | -1.69% | -3.46% | 1.68% | $9,831 |
-| 2025 | V-MA | fixed_pairs_zscore | -0.74% | -6.36% | 4.48% | $9,926 |
-| 2025 | V-MA | buy_and_hold_pair | 11.12% | -15.85% | 22.13% | $11,112 |
-| 2025 | V-MA | dca_pair | 2.34% | -8.98% | 12.05% | $10,234 |
-| 2026 | V-MA | ga_pairs_zscore | 0.14% | -0.52% | 1.38% | $10,014 |
-| 2026 | V-MA | fixed_pairs_zscore | 4.36% | -1.62% | 5.66% | $10,436 |
-| 2026 | V-MA | buy_and_hold_pair | -8.78% | -16.81% | 24.37% | $9,122 |
-| 2026 | V-MA | dca_pair | -2.43% | -7.32% | 14.17% | $9,757 |
 
 ![Problem 2 GA vs Fixed](../figures/reco_problem2_ga_vs_fixed.png)
 
@@ -363,27 +349,20 @@ GA 的 P2 參數不是拿測試期答案調出來的；`2016-2026` 這張 10 年
 
 ![Problem 2 Strategy Zoom](../figures/reco_problem2_2016-2026_v_ma_strategy_zoom.png)
 
-P2 GA 結論需要保守寫：目前每個測試期都固定使用 `V-MA`，GA 只負責調交易參數。2016-2026 年 `V-MA` GA -3.45%，固定參數 -4.97%，優於固定參數；2025 年 `V-MA` GA -1.69%，固定參數 -0.74%，低於固定參數；2026 年 `V-MA` GA 0.14%，固定參數 4.36%，低於固定參數。這代表 GA 不保證一定打敗固定參數；本報告保留 GA 結果，是為了展示參數搜尋與 out-of-sample 驗證，而不是把 GA 包裝成必勝模型。
+P2 GA 結論需要保守寫：正式測試窗固定使用 `V-MA`，GA 只負責調交易參數。2016-2026 年 `V-MA` GA -1.12%，固定參數 -2.87%，優於固定參數。這代表 GA 不保證一定打敗固定參數；本報告保留 GA 結果，是為了展示參數搜尋與 out-of-sample 驗證，而不是把 GA 包裝成必勝模型。
 
 P2 GA 為什麼贏或輸 fixed：
 
-- 2016-2026：GA 參數 lookback 78、entry_z 2.33、exit_z 0.05、stop_z 3.83、max hold 41。相對 fixed `60/2.0/0/3.0/60`，GA 交易 18 筆、fixed 28 筆；GA 累積 -3.45%、MDD -11.16%，fixed 累積 -4.97%、MDD -15.89%。GA 優於 fixed，但本質是少虧，不是大賺。
-- 2025：GA 參數 lookback 58、entry_z 1.03、exit_z 0.09、stop_z 3.29、max hold 28。相對 fixed `60/2.0/0/3.0/60`，GA 交易 1 筆、fixed 3 筆；GA 累積 -1.69%、MDD -3.46%，fixed 累積 -0.74%、MDD -6.36%。GA 輸給 fixed，代表訓練期選到的保守參數沒有抓到測試期主要回歸段。
-- 2026：GA 參數 lookback 59、entry_z 2.21、exit_z 0.24、stop_z 3.17、max hold 20。相對 fixed `60/2.0/0/3.0/60`，GA 交易 1 筆、fixed 1 筆；GA 累積 0.14%、MDD -0.52%，fixed 累積 4.36%、MDD -1.62%。GA 輸給 fixed，代表訓練期選到的保守參數沒有抓到測試期主要回歸段。
+- 2016-2026：GA 參數 lookback 81、entry_z 2.22、exit_z 0.44、stop_z 4.20、max hold 23。相對 fixed `40/1.5/0/3.5/60`，GA 交易 23 筆、fixed 44 筆；GA 累積 -1.12%、MDD -7.90%，fixed 累積 -2.87%、MDD -18.84%。GA 優於 fixed，但本質是少虧，不是大賺。
 
 P2 關鍵交易解釋：
 
 | Window | Strategy | Trade | Side | Z | Return | Why |
 | --- | --- | --- | --- | --- | --- | --- |
-| 2016-2026 | fixed_pairs_zscore | 2024-09-26 -> 2024-12-20 | short_spread | 2.08 -> -1.37 | -6.84% | 進場時 V-MA spread 偏高，策略做 short spread，期待 spread 往下回到均值；z 2.08 -> -1.37，z-score 往 0 回歸；同期 V 17.16%、MA 7.63%。到達最長持有天數仍未完整回歸，因此按風控規則出場，單筆報酬 -6.84%。 |
-| 2016-2026 | fixed_pairs_zscore | 2021-10-14 -> 2022-01-10 | short_spread | 2.04 -> -0.05 | 6.15% | 進場時 V-MA spread 偏高，策略做 short spread，期待 spread 往下回到均值；z 2.04 -> -0.05，z-score 往 0 回歸；同期 V -5.70%、MA 5.75%。到達最長持有天數仍未完整回歸，因此按風控規則出場，單筆報酬 6.15%。 |
-| 2016-2026 | ga_pairs_zscore | 2024-09-27 -> 2024-11-25 | short_spread | 2.42 -> 0.92 | -5.64% | 進場時 V-MA spread 偏高，策略做 short spread，期待 spread 往下回到均值；z 2.42 -> 0.92，z-score 往 0 回歸；同期 V 14.03%、MA 6.82%。到達最長持有天數仍未完整回歸，因此按風控規則出場，單筆報酬 -5.64%。 |
-| 2016-2026 | ga_pairs_zscore | 2026-04-14 -> 2026-05-15 | long_spread | -2.34 -> -0.50 | 4.40% | 進場時 V-MA spread 偏低，策略做 long spread，期待 spread 往上回到均值；z -2.34 -> -0.50，z-score 往 0 回歸；同期 V 4.84%、MA -3.69%。測試期結束仍持倉，因此以期末價格標記損益，單筆報酬 4.40%。 |
-| 2025 | fixed_pairs_zscore | 2025-06-03 -> 2025-08-28 | long_spread | -2.05 -> -0.25 | -3.06% | 進場時 V-MA spread 偏低，策略做 long spread，期待 spread 往上回到均值；z -2.05 -> -0.25，z-score 往 0 回歸；同期 V -4.21%、MA 1.60%。到達最長持有天數仍未完整回歸，因此按風控規則出場，單筆報酬 -3.06%。 |
-| 2025 | fixed_pairs_zscore | 2025-01-08 -> 2025-04-07 | long_spread | -2.01 -> -1.16 | 4.43% | 進場時 V-MA spread 偏低，策略做 long spread，期待 spread 往上回到均值；z -2.01 -> -1.16，z-score 往 0 回歸；同期 V 0.08%、MA -5.84%。到達最長持有天數仍未完整回歸，因此按風控規則出場，單筆報酬 4.43%。 |
-| 2025 | ga_pairs_zscore | 2025-09-12 -> 2025-10-22 | short_spread | 1.12 -> 1.93 | -1.64% | 進場時 V-MA spread 偏高，策略做 short spread，期待 spread 往下回到均值；z 1.12 -> 1.93，z-score 沒有往 0 回歸；同期 V 1.75%、MA -1.43%。到達最長持有天數仍未完整回歸，因此按風控規則出場，單筆報酬 -1.64%。 |
-| 2026 | fixed_pairs_zscore | 2026-03-19 -> 2026-05-15 | long_spread | -2.06 -> -0.15 | 4.42% | 進場時 V-MA spread 偏低，策略做 long spread，期待 spread 往上回到均值；z -2.06 -> -0.15，z-score 往 0 回歸；同期 V 8.91%、MA 0.80%。測試期結束仍持倉，因此以期末價格標記損益，單筆報酬 4.42%。 |
-| 2026 | ga_pairs_zscore | 2026-03-20 -> 2026-04-20 | long_spread | -2.27 -> -2.00 | 0.19% | 進場時 V-MA spread 偏低，策略做 long spread，期待 spread 往上回到均值；z -2.27 -> -2.00，z-score 往 0 回歸；同期 V 4.08%、MA 4.28%。到達最長持有天數仍未完整回歸，因此按風控規則出場，單筆報酬 0.19%。 |
+| 2016-2026 | fixed_pairs_zscore | 2016-11-17 -> 2017-02-15 | short_spread | 1.87 -> 1.35 | -3.35% | 進場時 V-MA spread 偏高，策略做 short spread，期待 spread 往下回到均值；z 1.87 -> 1.35，z-score 往 0 回歸；同期 V 8.19%、MA 5.21%。到達最長持有天數仍未完整回歸，因此按風控規則出場，單筆報酬 -3.35%。 |
+| 2016-2026 | fixed_pairs_zscore | 2024-12-06 -> 2025-03-07 | long_spread | -1.65 -> -1.48 | 4.23% | 進場時 V-MA spread 偏低，策略做 long spread，期待 spread 往上回到均值；z -1.65 -> -1.48，z-score 往 0 回歸；同期 V 11.22%、MA 3.60%。到達最長持有天數仍未完整回歸，因此按風控規則出場，單筆報酬 4.23%。 |
+| 2016-2026 | ga_pairs_zscore | 2025-07-16 -> 2025-08-18 | long_spread | -2.23 -> -1.43 | -3.74% | 進場時 V-MA spread 偏低，策略做 long spread，期待 spread 往上回到均值；z -2.23 -> -1.43，z-score 往 0 回歸；同期 V -1.87%、MA 5.15%。到達最長持有天數仍未完整回歸，因此按風控規則出場，單筆報酬 -3.74%。 |
+| 2016-2026 | ga_pairs_zscore | 2026-04-10 -> 2026-05-13 | long_spread | -2.26 -> -0.78 | 3.62% | 進場時 V-MA spread 偏低，策略做 long spread，期待 spread 往上回到均值；z -2.26 -> -0.78，z-score 往 0 回歸；同期 V 5.46%、MA -1.61%。到達最長持有天數仍未完整回歸，因此按風控規則出場，單筆報酬 3.62%。 |
 
 ### Problem 2 Price and Position Charts
 
@@ -391,48 +370,56 @@ P2 關鍵交易解釋：
 
 ![P2 2016-2026 V-MA Price Position](../figures/reco_problem2_2016-2026_v_ma_price_position.png)
 
-![P2 2025 V-MA Price Position](../figures/reco_problem2_2025_v_ma_price_position.png)
-
-![P2 2026 V-MA Price Position](../figures/reco_problem2_2026_v_ma_price_position.png)
-
 ### Problem 2 Trade Log
 
 | Pair | Window | Entry | Exit | Side | Return | Exit Reason | Holding Days |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| V-MA | 2016-2026 | 2016-02-11 | 2016-05-09 | short_spread | 0.42% | max_holding_days | 60 |
-| V-MA | 2016-2026 | 2016-07-07 | 2016-07-08 | short_spread | -1.17% | stop_z | 1 |
-| V-MA | 2016-2026 | 2016-08-11 | 2016-11-04 | long_spread | -2.80% | max_holding_days | 60 |
-| V-MA | 2016-2026 | 2016-11-17 | 2016-11-25 | short_spread | 1.13% | stop_z | 5 |
-| V-MA | 2016-2026 | 2017-04-11 | 2017-07-07 | long_spread | -0.09% | max_holding_days | 60 |
-| V-MA | 2016-2026 | 2017-07-24 | 2017-10-17 | long_spread | -2.10% | max_holding_days | 60 |
-| V-MA | 2016-2026 | 2017-11-22 | 2018-02-21 | short_spread | 1.08% | max_holding_days | 60 |
-| V-MA | 2016-2026 | 2018-07-03 | 2018-09-27 | short_spread | -2.72% | max_holding_days | 60 |
-| V-MA | 2016-2026 | 2018-11-27 | 2019-02-26 | long_spread | -2.80% | max_holding_days | 60 |
-| V-MA | 2016-2026 | 2019-08-05 | 2019-10-29 | long_spread | -0.14% | max_holding_days | 60 |
-| V-MA | 2016-2026 | 2019-11-07 | 2019-11-11 | long_spread | -0.39% | stop_z | 2 |
-| V-MA | 2016-2026 | 2020-01-09 | 2020-04-06 | long_spread | -0.61% | max_holding_days | 60 |
-| V-MA | 2016-2026 | 2020-07-01 | 2020-09-25 | long_spread | -3.64% | max_holding_days | 60 |
-| V-MA | 2016-2026 | 2021-03-16 | 2021-03-17 | short_spread | -0.04% | stop_z | 1 |
-| V-MA | 2016-2026 | 2021-06-15 | 2021-09-09 | long_spread | 1.39% | max_holding_days | 60 |
-| V-MA | 2016-2026 | 2021-10-14 | 2022-01-10 | short_spread | 6.15% | max_holding_days | 60 |
-| V-MA | 2016-2026 | 2022-01-28 | 2022-02-01 | short_spread | 0.03% | stop_z | 2 |
-| V-MA | 2016-2026 | 2022-04-21 | 2022-07-19 | long_spread | 2.56% | max_holding_days | 60 |
-| V-MA | 2016-2026 | 2023-01-20 | 2023-02-01 | long_spread | 1.83% | stop_z | 8 |
-| V-MA | 2016-2026 | 2023-04-20 | 2023-07-18 | long_spread | -1.48% | max_holding_days | 60 |
-| V-MA | 2016-2026 | 2023-09-19 | 2023-09-28 | short_spread | 0.99% | stop_z | 7 |
-| V-MA | 2016-2026 | 2024-01-31 | 2024-04-26 | long_spread | -1.23% | max_holding_days | 60 |
-| V-MA | 2016-2026 | 2024-07-01 | 2024-09-25 | short_spread | 3.83% | max_holding_days | 60 |
-| V-MA | 2016-2026 | 2024-09-26 | 2024-12-20 | short_spread | -6.84% | max_holding_days | 60 |
-| V-MA | 2016-2026 | 2025-01-08 | 2025-04-07 | long_spread | 4.43% | max_holding_days | 60 |
-| V-MA | 2016-2026 | 2025-06-03 | 2025-08-28 | long_spread | -3.06% | max_holding_days | 60 |
-| V-MA | 2016-2026 | 2025-09-26 | 2025-12-22 | short_spread | -1.81% | max_holding_days | 60 |
-| V-MA | 2016-2026 | 2026-03-19 | 2026-05-15 | long_spread | 4.42% | open_at_end | 40 |
-| V-MA | 2025 | 2025-01-08 | 2025-04-07 | long_spread | 4.43% | max_holding_days | 60 |
-| V-MA | 2025 | 2025-06-03 | 2025-08-28 | long_spread | -3.06% | max_holding_days | 60 |
-| V-MA | 2025 | 2025-09-26 | 2025-12-22 | short_spread | -1.81% | max_holding_days | 60 |
-| V-MA | 2026 | 2026-03-19 | 2026-05-15 | long_spread | 4.42% | open_at_end | 40 |
+| V-MA | 2016-2026 | 2016-02-02 | 2016-04-28 | short_spread | 2.06% | max_holding_days | 60 |
+| V-MA | 2016-2026 | 2016-06-17 | 2016-07-01 | long_spread | 0.22% | mean_reversion | 10 |
+| V-MA | 2016-2026 | 2016-07-07 | 2016-08-01 | short_spread | 0.45% | mean_reversion | 17 |
+| V-MA | 2016-2026 | 2016-08-10 | 2016-09-27 | long_spread | -0.60% | mean_reversion | 33 |
+| V-MA | 2016-2026 | 2016-09-30 | 2016-10-18 | short_spread | 0.77% | mean_reversion | 12 |
+| V-MA | 2016-2026 | 2016-11-17 | 2017-02-15 | short_spread | -3.35% | max_holding_days | 60 |
+| V-MA | 2016-2026 | 2017-03-29 | 2017-06-23 | long_spread | 0.07% | max_holding_days | 60 |
+| V-MA | 2016-2026 | 2017-07-11 | 2017-10-04 | long_spread | -0.81% | max_holding_days | 60 |
+| V-MA | 2016-2026 | 2017-10-26 | 2018-01-24 | short_spread | -1.07% | max_holding_days | 60 |
+| V-MA | 2016-2026 | 2018-02-15 | 2018-05-14 | short_spread | -0.27% | max_holding_days | 60 |
+| V-MA | 2016-2026 | 2018-06-06 | 2018-08-09 | short_spread | -1.58% | mean_reversion | 45 |
+| V-MA | 2016-2026 | 2018-08-16 | 2018-11-09 | long_spread | 0.88% | max_holding_days | 60 |
+| V-MA | 2016-2026 | 2018-11-26 | 2019-02-25 | long_spread | -3.27% | max_holding_days | 60 |
+| V-MA | 2016-2026 | 2019-03-11 | 2019-06-05 | short_spread | 0.34% | max_holding_days | 60 |
+| V-MA | 2016-2026 | 2019-07-18 | 2019-10-11 | long_spread | -0.99% | mean_reversion | 60 |
+| V-MA | 2016-2026 | 2019-10-17 | 2019-10-31 | short_spread | -0.26% | mean_reversion | 10 |
+| V-MA | 2016-2026 | 2019-11-06 | 2020-02-04 | long_spread | -1.28% | max_holding_days | 60 |
+| V-MA | 2016-2026 | 2020-02-28 | 2020-04-03 | short_spread | 0.53% | mean_reversion | 25 |
+| V-MA | 2016-2026 | 2020-04-21 | 2020-05-12 | long_spread | 1.28% | mean_reversion | 15 |
+| V-MA | 2016-2026 | 2020-05-29 | 2020-06-15 | short_spread | 0.39% | mean_reversion | 11 |
+| V-MA | 2016-2026 | 2020-06-24 | 2020-08-10 | long_spread | -2.93% | mean_reversion | 32 |
+| V-MA | 2016-2026 | 2020-08-17 | 2020-11-10 | short_spread | -2.94% | max_holding_days | 60 |
+| V-MA | 2016-2026 | 2020-12-09 | 2021-02-04 | long_spread | -0.74% | mean_reversion | 38 |
+| V-MA | 2016-2026 | 2021-03-04 | 2021-03-18 | short_spread | -0.32% | stop_z | 10 |
+| V-MA | 2016-2026 | 2021-05-28 | 2021-08-24 | long_spread | 1.96% | max_holding_days | 60 |
+| V-MA | 2016-2026 | 2021-09-21 | 2021-11-29 | short_spread | 4.15% | mean_reversion | 48 |
+| V-MA | 2016-2026 | 2021-12-10 | 2022-01-06 | long_spread | -1.38% | mean_reversion | 18 |
+| V-MA | 2016-2026 | 2022-01-13 | 2022-03-10 | short_spread | -1.11% | mean_reversion | 38 |
+| V-MA | 2016-2026 | 2022-04-11 | 2022-06-28 | long_spread | 0.10% | mean_reversion | 53 |
+| V-MA | 2016-2026 | 2022-07-06 | 2022-09-21 | short_spread | 2.33% | mean_reversion | 54 |
+| V-MA | 2016-2026 | 2022-10-26 | 2022-12-07 | short_spread | 2.28% | mean_reversion | 29 |
+| V-MA | 2016-2026 | 2023-01-18 | 2023-04-14 | long_spread | 3.07% | max_holding_days | 60 |
+| V-MA | 2016-2026 | 2023-06-22 | 2023-07-12 | short_spread | -0.33% | mean_reversion | 13 |
+| V-MA | 2016-2026 | 2023-07-18 | 2023-09-01 | long_spread | -0.42% | mean_reversion | 33 |
+| V-MA | 2016-2026 | 2023-09-07 | 2023-11-17 | short_spread | -2.29% | mean_reversion | 51 |
+| V-MA | 2016-2026 | 2023-11-27 | 2024-01-03 | long_spread | -0.39% | mean_reversion | 25 |
+| V-MA | 2016-2026 | 2024-01-23 | 2024-04-04 | long_spread | -2.71% | mean_reversion | 50 |
+| V-MA | 2016-2026 | 2024-05-21 | 2024-06-17 | long_spread | 0.21% | mean_reversion | 18 |
+| V-MA | 2016-2026 | 2024-06-26 | 2024-09-20 | short_spread | 1.52% | max_holding_days | 60 |
+| V-MA | 2016-2026 | 2024-12-06 | 2025-03-07 | long_spread | 4.23% | max_holding_days | 60 |
+| V-MA | 2016-2026 | 2025-04-30 | 2025-07-28 | long_spread | -0.82% | max_holding_days | 60 |
+| V-MA | 2016-2026 | 2025-09-04 | 2025-11-28 | short_spread | -1.99% | max_holding_days | 60 |
+| V-MA | 2016-2026 | 2025-12-22 | 2026-02-23 | short_spread | 2.17% | mean_reversion | 41 |
+| V-MA | 2016-2026 | 2026-03-05 | 2026-05-12 | long_spread | 2.88% | mean_reversion | 47 |
 
-固定參數 P2 共有 32 筆交易，勝 14、負 18、持平 0，平均單筆報酬 0.04%，最常見出場原因是 `max_holding_days`。本次結果要誠實寫成：若 spread 沒有在持有期限內完成回歸，max holding rule 會主動收束風險；若 z-score 偏離後順利回到 0 附近，策略就以 mean_reversion 出場。
+固定參數 P2 共有 44 筆交易，勝 21、負 23、持平 0，平均單筆報酬 0.00%，最常見出場原因是 `mean_reversion`。本次結果要誠實寫成：若 spread 沒有在持有期限內完成回歸，max holding rule 會主動收束風險；若 z-score 偏離後順利回到 0 附近，策略就以 mean_reversion 出場。
 
 ### Problem 2 Diagnostics
 
@@ -467,7 +454,7 @@ Gavin: data collection, Python strategy implementation, benchmark construction, 
 
 ## 10. Reproducibility
 
-Run the following commands from this repo root:
+Run the following commands from the `專題二` folder:
 
 ```bash
 python3 scripts/run_term_project2_recommended.py

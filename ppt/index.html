@@ -647,7 +647,7 @@
     <div class="kicker" data-anim>Pairs strategy vs benchmark</div>
     <h2 class="h-md" data-anim>報酬輸給持有股票，但風險也明顯較低</h2>
     <figure class="frame-img r-16x9 fit-contain" style="margin-top:3vh" data-anim><img src="images/09-p2-overall.png" alt="Problem 2 result"></figure>
-    <div class="meta-row" style="margin-top:2vh" data-anim><span>Pairs annualized 0.20%</span><span>·</span><span>MDD -4.71%</span></div>
+    <div class="meta-row" style="margin-top:2vh" data-anim><span>Pairs annualized 0.90%</span><span>·</span><span>MDD -4.62%</span></div>
   </div>
   <div class="foot"><div>Problem 2 performance</div><div>13 / 16</div></div>
 </section>
@@ -659,10 +659,10 @@
     <div class="col">
       <div class="kicker" data-anim>No look-ahead GA</div>
       <h2 class="h-md" data-anim>用價格 / 資產 / 持倉線看 P2 發生什麼</h2>
-      <div class="rowline" data-anim><div class="k">V-MA 2016-2026</div><div class="v">GA -3.45%</div><div class="v">Fixed -4.97%</div></div>
-      <div class="rowline" data-anim><div class="k">GA selected</div><div class="v">lookback 78, entry 2.33, stop 3.83, hold 41</div><div class="v">進場更嚴格、持有更短：降低風險，也限制獲利空間</div></div>
-      <div class="rowline" data-anim><div class="k">Fixed baseline</div><div class="v">60D / entry 2.0 / exit 0 / stop 3.0 / hold 60</div><div class="v">classic z-score rule</div></div>
-      <div class="rowline" data-anim><div class="k">Average</div><div class="v">GA pairs -1.67%</div><div class="v">Fixed pairs -0.45%</div></div>
+      <div class="rowline" data-anim><div class="k">V-MA 2016-2026</div><div class="v">GA -1.12%</div><div class="v">Fixed -2.87%</div></div>
+      <div class="rowline" data-anim><div class="k">GA selected</div><div class="v">lookback 81, entry 2.22, stop 4.20, hold 23</div><div class="v">進場更嚴格、持有更短：降低風險，也限制獲利空間</div></div>
+      <div class="rowline" data-anim><div class="k">Fixed baseline</div><div class="v">40D / entry 1.5 / exit 0 / stop 3.5 / hold 60</div><div class="v">classic z-score rule</div></div>
+      <div class="rowline" data-anim><div class="k">2016-2026</div><div class="v">GA pairs -1.12%</div><div class="v">Fixed pairs -2.87%</div></div>
       <div class="callout" data-anim>持倉線是關鍵：+1 是 long spread，-1 是 short spread，0 表示沒有 z-score 偏離訊號。</div>
     </div>
     <figure class="frame-img r-16x10 fit-contain" data-anim><img src="images/11-p2-ga-detail.png" alt="P2 price position chart"></figure>
@@ -676,13 +676,13 @@
   <div class="frame" style="padding-top:4vh">
     <div class="kicker" data-anim>交易 log</div>
     <h2 class="h-md" data-anim>固定 V-MA：z-score 偏離時進場，回歸或停損出場</h2>
-    <div class="rowline" data-anim><div class="k">V-MA</div><div class="v">2016-02-11 to 2016-05-09, short_spread</div><div class="v">0.42%, 60 days</div></div>
-<div class="rowline" data-anim><div class="k">V-MA</div><div class="v">2016-07-07 to 2016-07-08, short_spread</div><div class="v">-1.17%, 1 days</div></div>
-<div class="rowline" data-anim><div class="k">V-MA</div><div class="v">2016-08-11 to 2016-11-04, long_spread</div><div class="v">-2.80%, 60 days</div></div>
-<div class="rowline" data-anim><div class="k">V-MA</div><div class="v">2016-11-17 to 2016-11-25, short_spread</div><div class="v">1.13%, 5 days</div></div>
-<div class="rowline" data-anim><div class="k">V-MA</div><div class="v">2017-04-11 to 2017-07-07, long_spread</div><div class="v">-0.09%, 60 days</div></div>
-<div class="rowline" data-anim><div class="k">V-MA</div><div class="v">2017-07-24 to 2017-10-17, long_spread</div><div class="v">-2.10%, 60 days</div></div>
-<div class="rowline" data-anim><div class="k">More trades</div><div class="v">26 rows in CSV/report</div><div class="v">see full log</div></div>
+    <div class="rowline" data-anim><div class="k">V-MA</div><div class="v">2016-02-02 to 2016-04-28, short_spread</div><div class="v">2.06%, 60 days</div></div>
+<div class="rowline" data-anim><div class="k">V-MA</div><div class="v">2016-06-17 to 2016-07-01, long_spread</div><div class="v">0.22%, 10 days</div></div>
+<div class="rowline" data-anim><div class="k">V-MA</div><div class="v">2016-07-07 to 2016-08-01, short_spread</div><div class="v">0.45%, 17 days</div></div>
+<div class="rowline" data-anim><div class="k">V-MA</div><div class="v">2016-08-10 to 2016-09-27, long_spread</div><div class="v">-0.60%, 33 days</div></div>
+<div class="rowline" data-anim><div class="k">V-MA</div><div class="v">2016-09-30 to 2016-10-18, short_spread</div><div class="v">0.77%, 12 days</div></div>
+<div class="rowline" data-anim><div class="k">V-MA</div><div class="v">2016-11-17 to 2017-02-15, short_spread</div><div class="v">-3.35%, 60 days</div></div>
+<div class="rowline" data-anim><div class="k">More trades</div><div class="v">38 rows in CSV/report</div><div class="v">see full log</div></div>
     <div class="callout" style="margin-top:4vh" data-anim>Final version uses classic z-score entries. ADF / half-life are diagnostics, not hard entry blockers.</div>
   </div>
   <div class="foot"><div>Problem 2 diagnostics</div><div>15 / 16</div></div>
